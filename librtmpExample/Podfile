@@ -1,4 +1,5 @@
 platform :osx, "10.9"
 workspace '../librtmp.xcworkspace'
+xcodeproj 'librtmpExample.xcodeproj'
 
 pod 'librtmp', :podspec => '../librtmp.podspec'

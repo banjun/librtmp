@@ -9,6 +9,6 @@ EXTERNAL SOURCES:
     :podspec: ../librtmp.podspec
 
 SPEC CHECKSUMS:
-  librtmp: de2e9c4000fa6a352463dcb8edde7ed6e0a8d45c
+  librtmp: 0ae6d0ef1e0183b0ca0c39a284ea2b1d960e2f63
 
 COCOAPODS: 0.29.0
