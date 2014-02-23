@@ -10,10 +10,10 @@ Pod::Spec.new do |s|
   s.homepage     = "http://github.com/banjun/librtmp"
   s.license      = {:type => 'GNU LGPL 2.1', :file => 'librtmp/COPYING'}
   s.author             = { "banjun" => "banjun@gmail.com" }
-  s.ios.deployment_target = '7.0'
+  # s.ios.deployment_target = '7.0'
   s.osx.deployment_target = '10.9'
   s.source       = { :git => "git://git.ffmpeg.org/rtmpdump", :commit => "dc76f0a8461e6c8f1277eba58eae201b2dc1d06a" }
-  s.source_files  = 'librtmp/*.{h,m}'
+  s.source_files  = 'librtmp/*.{h,c}'
   s.exclude_files = 'Classes/Exclude'
   s.preserve_paths = 'librtmp/COPYING'
 
@@ -27,8 +27,7 @@ Pod::Spec.new do |s|
   # s.framework  = 'SomeFramework'
   # s.frameworks = 'SomeFramework', 'AnotherFramework'
 
-  # s.library   = 'iconv'
-  # s.libraries = 'iconv', 'xml2'
+  # s.libraries = 'openssl'
 
 
   # ――― Project Settings ――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
