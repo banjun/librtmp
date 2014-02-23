@@ -1,0 +1,14 @@
+PODS:
+  - librtmp (0.0.1)
+
+DEPENDENCIES:
+  - librtmp (from `../librtmp.podspec`)
+
+EXTERNAL SOURCES:
+  librtmp:
+    :podspec: ../librtmp.podspec
+
+SPEC CHECKSUMS:
+  librtmp: de2e9c4000fa6a352463dcb8edde7ed6e0a8d45c
+
+COCOAPODS: 0.29.0

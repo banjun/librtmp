@@ -1,1 +1,16 @@
-<?xml version='1.0' encoding='UTF-8'?><Workspace version='1.0'><FileRef location='group:librtmpTests/librtmpTests.xcodeproj'/><FileRef location='group:librtmpTests/Pods/Pods.xcodeproj'/></Workspace>
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:librtmpExample/librtmpExample.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:librtmpTests/librtmpTests.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:librtmpExample/Pods/Pods.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:librtmpTests/Pods/Pods.xcodeproj">
+   </FileRef>
+</Workspace>
