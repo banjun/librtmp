@@ -27,7 +27,7 @@ Pod::Spec.new do |s|
   # s.framework  = 'SomeFramework'
   # s.frameworks = 'SomeFramework', 'AnotherFramework'
 
-  # s.libraries = 'openssl'
+  s.libraries = 'ssl', 'crypto', 'z'
 
 
   # ――― Project Settings ――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
