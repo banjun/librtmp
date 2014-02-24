@@ -11,12 +11,33 @@
 #import <librtmp/log.h>
 
 
+
+typedef enum {
+    AudioObjectTypeNull = 0,
+    AudioObjectTypeAACMain,
+    AudioObjectTypeAACLC,
+    AudioObjectTypeAACSR,
+    AudioObjectTypeAACLTP,
+    AudioObjectTypeSBR,
+    AudioObjectTypeAACScalable,
+} AudioObjectType;
+
+typedef struct {
+    AudioObjectType type:5;
+    uint8_t freqIndex:4;
+    uint8_t channel:4;
+    uint8_t frameLengthFlag:1;
+    uint8_t dependsOnCoreCoder:1;
+    uint8_t extensionFlag:1;
+} AudioSetupData;
+
 @interface AppDelegate ()
 
 @property (nonatomic) NSTextField *urlField;
 @property (nonatomic) NSButton *liveCheckbox;
 
 @property (nonatomic) RTMP *rtmp;
+@property (nonatomic) AudioSetupData audioSetupData;
 @property (nonatomic) double audioDataRate;
 @property (nonatomic) NSFileHandle *audioFileHandle;
 
@@ -100,15 +121,25 @@
             }
             if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) {
                 NSLog(@"found audio packet (%d bytes)", packet.m_nBodySize);
-                if (packet.m_nBodySize > 2) {
+                
+                static unsigned char firstFrame[] = {0xAF, 0x00}; // AAC sequence header (FLV Audio Tag)
+                static size_t firstFrameLength = sizeof(firstFrame) / sizeof(firstFrame[0]);
+                static unsigned char soundBytes[] = {0xAF, 0x01}; // AAC raw (FLV Audio Tag)
+                static size_t soundBytesLength = sizeof(soundBytes) / sizeof(soundBytes[0]);
+                // unless first is 0xAX, non AAC data follows
+                
+                if (packet.m_nBodySize > firstFrameLength && memcmp(packet.m_body, firstFrame, firstFrameLength) == 0) {
+                    // first 'AF 00' means audio extra data (first frame)
+                    AudioSetupData data = self.audioSetupData;
+                    data.type = (packet.m_body[2] >> 3);
+                    data.freqIndex = ((packet.m_body[2] & 7) << 1) + (packet.m_body[3] >> 7); // NOTE: mismatch to audiodatarate?
+                    data.channel = (packet.m_body[3] >> 3) & 0x0F;
+                    self.audioSetupData = data;
+                } else if (packet.m_nBodySize > soundBytesLength && memcmp(packet.m_body, soundBytes, soundBytesLength) == 0) {
                     // first 'AF 01' means audio AAC raw
-                    unsigned char soundBytes[] = {0xAF, 0x01};
-                    size_t soundBytesLength = sizeof(soundBytes) / sizeof(soundBytes[0]);
-                    if (memcmp(packet.m_body, soundBytes, soundBytesLength) == 0) {
-                        [self writeAACWithADTS:[NSData dataWithBytesNoCopy:packet.m_body + soundBytesLength
-                                                                    length:packet.m_nBodySize - soundBytesLength
-                                                              freeWhenDone:NO]];
-                    }
+                    [self writeAACWithADTS:[NSData dataWithBytesNoCopy:packet.m_body + soundBytesLength
+                                                                length:packet.m_nBodySize - soundBytesLength
+                                                          freeWhenDone:NO]];
                 }
             }
         } else {
@@ -170,6 +201,28 @@
         NSLog(@"unknown freq: %f", self.audioDataRate);
         return;
     }
+    if (freqIndex != self.audioSetupData.freqIndex) {
+        // NOTE: freq[freqIndex] == freq[audioSetupData.freqIndex] * 2 when HE-AAC (SBR)
+        NSLog(@"freqIndex mismatch (%f (audiodatarate) vs %f (audioSetupData)). using audioSetupData", freqs[freqIndex], freqs[self.audioSetupData.freqIndex]);
+        freqIndex = self.audioSetupData.freqIndex;
+    }
+    
+    // map AudioObjectType -> ADTS profile
+    int profile = 0;
+    switch (self.audioSetupData.type) {
+        case AudioObjectTypeAACMain:
+            profile = 0;
+            break;
+        case AudioObjectTypeAACLC:
+            profile = 1;
+            break;
+        case AudioObjectTypeAACScalable:
+            profile = 2;
+            break;
+        default:
+            NSLog(@"unsupported audio object type in ADTS: %d", self.audioSetupData.type);
+            return;
+    }
     
     unsigned char adtsHeader[7] = {
         0xff, // first 0xfff is for sync
@@ -184,7 +237,8 @@
     
     uint16_t aacFrameLength = adtsHeaderLength + aacRawData.length;
     
-    adtsHeader[3] = (adtsHeader[3] & 0xfc) | (aacFrameLength >> 14); // take first 2bit to lower 2 bit
+    adtsHeader[2] = ((profile & 3) << 6) | (freqIndex << 2) | (self.audioSetupData.channel & 4 >> 2);
+    adtsHeader[3] = ((self.audioSetupData.channel & 3) << 6) | (aacFrameLength >> 14); // take first 2bit to lower 2 bit
     adtsHeader[4] = ((aacFrameLength >> 3) & 0xff); // next 8bit
     adtsHeader[5] = (adtsHeader[5] & 0x1f) | ((aacFrameLength & 7) << 5); // last 3bit
     
