@@ -133,40 +133,49 @@ typedef struct {
         NSLog(@"failed to connect stream");
     }
     
-    for (int i = 0; i < 100; ++i) {
-        RTMPPacket packet = {0};
-        if (RTMP_ReadPacket(self.rtmp, &packet)) {
-            NSLog(@"RTMP read %d bytes as packet", packet.m_nBytesRead);
-            RTMPPacket_Dump(&packet);
-            if (packet.m_packetType == RTMP_PACKET_TYPE_INFO) {
-                [self decodeAudioInfo:&packet];
-            }
-            if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) {
-                NSLog(@"found audio packet (%d bytes)", packet.m_nBodySize);
-                
-                static unsigned char firstFrame[] = {0xAF, 0x00}; // AAC sequence header (FLV Audio Tag)
-                static size_t firstFrameLength = sizeof(firstFrame) / sizeof(firstFrame[0]);
-                static unsigned char soundBytes[] = {0xAF, 0x01}; // AAC raw (FLV Audio Tag)
-                static size_t soundBytesLength = sizeof(soundBytes) / sizeof(soundBytes[0]);
-                // unless first is 0xAX, non AAC data follows
-                
-                if (packet.m_nBodySize > firstFrameLength && memcmp(packet.m_body, firstFrame, firstFrameLength) == 0) {
-                    // first 'AF 00' means audio extra data (first frame)
-                    AudioSetupData data = self.audioSetupData;
-                    data.type = (packet.m_body[2] >> 3);
-                    data.freqIndex = ((packet.m_body[2] & 7) << 1) + (packet.m_body[3] >> 7); // NOTE: mismatch to audiodatarate?
-                    data.channel = (packet.m_body[3] >> 3) & 0x0F;
-                    self.audioSetupData = data;
-                } else if (packet.m_nBodySize > soundBytesLength && memcmp(packet.m_body, soundBytes, soundBytesLength) == 0) {
-                    // first 'AF 01' means audio AAC raw
-                    [self writeAACWithADTS:[NSData dataWithBytesNoCopy:packet.m_body + soundBytesLength
-                                                                length:packet.m_nBodySize - soundBytesLength
-                                                          freeWhenDone:NO]];
+    NSDate *start = [NSDate date];
+    while ([[NSDate date] timeIntervalSinceDate:start] <= 10 * 60) {
+        @autoreleasepool {
+            RTMPPacket packet = {0};
+            if (RTMP_ReadPacket(self.rtmp, &packet)) {
+                NSLog(@"RTMP read %d bytes as packet", packet.m_nBytesRead);
+                RTMPPacket_Dump(&packet);
+                if (packet.m_packetType == RTMP_PACKET_TYPE_INFO) {
+                    [self decodeAudioInfo:&packet];
+                } else if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) {
+                    NSLog(@"found audio packet (%d bytes)", packet.m_nBodySize);
+                    
+                    static unsigned char firstFrame[] = {0xAF, 0x00}; // AAC sequence header (FLV Audio Tag)
+                    static size_t firstFrameLength = sizeof(firstFrame) / sizeof(firstFrame[0]);
+                    static unsigned char soundBytes[] = {0xAF, 0x01}; // AAC raw (FLV Audio Tag)
+                    static size_t soundBytesLength = sizeof(soundBytes) / sizeof(soundBytes[0]);
+                    // unless first is 0xAX, non AAC data follows
+                    
+                    if (packet.m_nBodySize > firstFrameLength && memcmp(packet.m_body, firstFrame, firstFrameLength) == 0) {
+                        // first 'AF 00' means audio extra data (first frame)
+                        AudioSetupData data = self.audioSetupData;
+                        data.type = (packet.m_body[2] >> 3);
+                        data.freqIndex = ((packet.m_body[2] & 7) << 1) + (packet.m_body[3] >> 7); // NOTE: mismatch to audiodatarate?
+                        data.channel = (packet.m_body[3] >> 3) & 0x0F;
+                        self.audioSetupData = data;
+                    } else if (packet.m_nBodySize > soundBytesLength && memcmp(packet.m_body, soundBytes, soundBytesLength) == 0) {
+                        // first 'AF 01' means audio AAC raw
+                        [self writeAACWithADTS:[NSData dataWithBytesNoCopy:packet.m_body + soundBytesLength
+                                                                    length:packet.m_nBodySize - soundBytesLength
+                                                              freeWhenDone:NO]];
+                    }
+                } else if (packet.m_packetType == RTMP_PACKET_TYPE_CONTROL) {
+                    NSLog(@"control packet received");
+                    
+                    // reply ping
+                    RTMP_ClientPacket(self.rtmp, &packet);
+                } else {
+                    NSLog(@"packet type = %d", packet.m_packetType);
                 }
+            } else {
+                NSLog(@"failed to read packet.");
+                break;
             }
-        } else {
-            NSLog(@"failed to read packet.");
-            break;
         }
     }
     
