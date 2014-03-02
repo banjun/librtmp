@@ -35,6 +35,7 @@ typedef struct {
 
 @property (nonatomic) NSTextField *urlField;
 @property (nonatomic) NSButton *liveCheckbox;
+@property (nonatomic) NSTextField *swfUrlField;
 
 @property (nonatomic) RTMP *rtmp;
 @property (nonatomic) AudioSetupData audioSetupData;
@@ -55,8 +56,19 @@ typedef struct {
     [self.urlField bind:@"value"
                toObject:[NSUserDefaultsController sharedUserDefaultsController]
             withKeyPath:@"values.rtmpURL"
-                options:nil];
+                options:@{NSNullPlaceholderBindingOption: @"rtmpURL"}];
     [contentView addSubview:self.urlField];
+    [self.window makeFirstResponder:self.urlField];
+    
+    self.swfUrlField = [[NSTextField alloc] initWithFrame:NSInsetRect(NSMakeRect(0, self.urlField.frame.origin.y - 22- 20, contentView.frame.size.width, 22), 20, 0)];
+    self.swfUrlField.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin;
+    [self.swfUrlField bind:@"value"
+               toObject:[NSUserDefaultsController sharedUserDefaultsController]
+            withKeyPath:@"values.swfURL"
+                options:@{NSNullPlaceholderBindingOption: @"swfUrl"}];
+    [contentView addSubview:self.swfUrlField];
+    self.urlField.nextKeyView = self.swfUrlField;
+    self.swfUrlField.nextKeyView = self.urlField;
     
     self.liveCheckbox = [[NSButton alloc] initWithFrame:NSZeroRect];
     [self.liveCheckbox setButtonType:NSSwitchButton];
@@ -66,7 +78,7 @@ typedef struct {
                 withKeyPath:@"values.rtmpLive"
                     options:nil];
     [self.liveCheckbox sizeToFit];
-    self.liveCheckbox.frame = NSMakeRect(20, self.urlField.frame.origin.y - self.liveCheckbox.frame.size.height - 10, self.liveCheckbox.frame.size.width, self.liveCheckbox.frame.size.height);
+    self.liveCheckbox.frame = NSMakeRect(20, self.swfUrlField.frame.origin.y - self.liveCheckbox.frame.size.height - 10, self.liveCheckbox.frame.size.width, self.liveCheckbox.frame.size.height);
     self.liveCheckbox.autoresizingMask = NSViewMaxXMargin | NSViewMinYMargin;
     [contentView addSubview:self.liveCheckbox];
     
@@ -74,7 +86,7 @@ typedef struct {
     goButton.bezelStyle = NSRoundedBezelStyle;
     goButton.title = NSLocalizedString(@"Go", @"");
     [goButton sizeToFit];
-    goButton.frame = NSMakeRect(contentView.frame.size.width - goButton.frame.size.width - 20, self.urlField.frame.origin.y - goButton.frame.size.width - 10, goButton.frame.size.width, goButton.frame.size.height);
+    goButton.frame = NSMakeRect(contentView.frame.size.width - goButton.frame.size.width - 20, self.swfUrlField.frame.origin.y - goButton.frame.size.width - 10, goButton.frame.size.width, goButton.frame.size.height);
     goButton.autoresizingMask = NSViewMinXMargin | NSViewMinYMargin;
     goButton.target = self;
     goButton.action = @selector(go:);
@@ -88,6 +100,10 @@ typedef struct {
     NSLog(@"url = %@", urlString);
     // example: 'rtmpe://netradio-r1-flash.nhk.jp/live/NetRadio_R1_flash@63346' and --live
     
+    NSString *swfURLString = self.swfUrlField.stringValue;
+    NSLog(@"swfUrl = %@", swfURLString);
+    // example: http://www3.nhk.or.jp/netradio/files/swf/rtmpe.swf
+    
     RTMP_LogSetLevel(RTMP_LOGERROR);
     
     self.rtmp = RTMP_Alloc();
@@ -96,6 +112,12 @@ typedef struct {
         return;
     }
     RTMP_Init(self.rtmp);
+    
+    // set swfurl
+    if (swfURLString.length > 0) {
+        self.rtmp->Link.swfUrl = (AVal)AVC((char *)swfURLString.UTF8String);
+        self.rtmp->Link.lFlags |= RTMP_LF_SWFV;
+    }
     
     RTMP_SetupURL(self.rtmp, (char *)urlString.UTF8String);
     
